@@ -4,6 +4,7 @@ import {
   isLimitError,
   isAuthError,
   isOutOfCreditError,
+  isScopeComplianceError,
   classifyAgentApiError,
 } from "../utils/error-utils.js";
 
@@ -210,6 +211,20 @@ describe("isAuthError", () => {
   });
 });
 
+describe("isScopeComplianceError", () => {
+  it("returns true for scope compliance in message", () => {
+    expect(isScopeComplianceError(new Error("Scope compliance: implementation does not match"))).toBe(true);
+    expect(isScopeComplianceError(new Error("scope compliance failed"))).toBe(true);
+    expect(isScopeComplianceError(new Error("scope_compliance rejection"))).toBe(true);
+  });
+
+  it("returns false for non-scope-compliance errors", () => {
+    expect(isScopeComplianceError(new Error("Rate limit exceeded"))).toBe(false);
+    expect(isScopeComplianceError(new Error("Invalid API key"))).toBe(false);
+    expect(isScopeComplianceError(null)).toBe(false);
+  });
+});
+
 describe("isOutOfCreditError", () => {
   it("returns true for out of credit", () => {
     expect(isOutOfCreditError(new Error("Out of credit"))).toBe(true);
@@ -239,6 +254,15 @@ describe("classifyAgentApiError", () => {
   it("returns out_of_credit for credit/quota errors", () => {
     expect(classifyAgentApiError(new Error("Out of credit"))).toBe("out_of_credit");
     expect(classifyAgentApiError(new Error("Add more tokens"))).toBe("out_of_credit");
+  });
+
+  it("returns scope_compliance for scope compliance rejections (not rate_limit)", () => {
+    expect(classifyAgentApiError(new Error("Scope compliance: implementation does not match"))).toBe("scope_compliance");
+    expect(classifyAgentApiError(new Error("scope_compliance rejection"))).toBe("scope_compliance");
+    // When both scope compliance and rate limit appear, scope_compliance takes precedence
+    expect(classifyAgentApiError(new Error("Scope compliance: implementation does not rate limit correctly"))).toBe(
+      "scope_compliance"
+    );
   });
 
   it("returns rate_limit for rate limit errors", () => {

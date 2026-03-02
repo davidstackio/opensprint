@@ -7,6 +7,7 @@ const API_BLOCKED_LABELS: Record<ApiBlockedErrorCode, string> = {
   rate_limit: "Rate limit",
   auth: "Invalid API key",
   out_of_credit: "Out of credit",
+  scope_compliance: "Scope compliance",
 };
 
 export interface OpenQuestionsBlockProps {
@@ -116,6 +117,8 @@ export function OpenQuestionsBlock({
                 Open Global settings
               </button>
             </>
+          ) : notification.errorCode === "scope_compliance" ? (
+            `${apiBlockedLabel}: Review rejected. Dismiss to acknowledge.`
           ) : (
             `${apiBlockedLabel}: Fix in Settings (API keys or credits), then Dismiss.`
           )

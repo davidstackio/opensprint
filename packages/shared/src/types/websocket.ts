@@ -158,7 +158,7 @@ export interface NotificationAddedEvent {
     createdAt: string;
     resolvedAt: string | null;
     kind?: "open_question" | "api_blocked" | "hil_approval";
-    errorCode?: "rate_limit" | "auth" | "out_of_credit";
+    errorCode?: "rate_limit" | "auth" | "out_of_credit" | "scope_compliance";
     scopeChangeMetadata?: ScopeChangeMetadata;
   };
 }

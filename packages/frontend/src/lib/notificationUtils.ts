@@ -15,6 +15,7 @@ export const API_BLOCKED_LABELS: Record<ApiBlockedErrorCode, string> = {
   rate_limit: "Rate limit",
   auth: "Invalid API key",
   out_of_credit: "Out of credit",
+  scope_compliance: "Scope compliance",
 };
 
 export function truncatePreview(text: string, maxLen = 60): string {

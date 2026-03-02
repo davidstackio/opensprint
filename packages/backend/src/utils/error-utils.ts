@@ -122,6 +122,25 @@ export function isAuthError(err: unknown): boolean {
   return AUTH_ERROR_PATTERNS.some((re) => re.test(lower));
 }
 
+/** Scope compliance patterns — review/API rejection for scope violations (distinct from rate limit). */
+const SCOPE_COMPLIANCE_PATTERNS = [
+  /scope\s*compliance/i,
+  /scope_compliance/i,
+];
+
+/**
+ * Detect scope compliance rejection errors.
+ * Used to avoid misclassifying scope compliance as rate_limit when both terms appear in the message.
+ */
+export function isScopeComplianceError(err: unknown): boolean {
+  if (err == null) return false;
+
+  const toCheck = getErrorStrings(err).join(" ");
+  if (!toCheck) return false;
+
+  return SCOPE_COMPLIANCE_PATTERNS.some((re) => re.test(toCheck));
+}
+
 /** Out-of-credit / quota patterns (distinct from rate limit — requires user to add credits). */
 const OUT_OF_CREDIT_PATTERNS = [
   /out\s*of\s*credit/i,
@@ -147,17 +166,19 @@ export function isOutOfCreditError(err: unknown): boolean {
 }
 
 /** Classification for agent API failures — used for human-blocked notifications. */
-export type AgentApiErrorKind = "rate_limit" | "auth" | "out_of_credit";
+export type AgentApiErrorKind = "rate_limit" | "auth" | "out_of_credit" | "scope_compliance";
 
 /**
  * Classify an error as an agent API failure type.
  * Returns the kind for human-blocked notifications, or null if not API-related.
- * Order: auth first (invalid token), then out_of_credit, then rate_limit.
+ * Order: auth first, then out_of_credit, then scope_compliance (before rate_limit so scope compliance
+ * rejections are not misclassified as rate limit when both terms appear), then rate_limit.
  */
 export function classifyAgentApiError(err: unknown): AgentApiErrorKind | null {
   if (err == null) return null;
   if (isAuthError(err)) return "auth";
   if (isOutOfCreditError(err)) return "out_of_credit";
+  if (isScopeComplianceError(err)) return "scope_compliance";
   if (isLimitError(err)) return "rate_limit";
   return null;
 }

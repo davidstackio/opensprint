@@ -259,6 +259,33 @@ describe("OpenQuestionsBlock", () => {
     });
   });
 
+  it("renders API-blocked scope_compliance variant with correct label and message (no Retry)", () => {
+    const apiBlockedNotification: Notification = {
+      ...mockNotification,
+      id: "ab-scope",
+      questions: [
+        { id: "q1", text: "Scope compliance: implementation does not match ticket.", createdAt: "2025-01-01T00:00:00Z" },
+      ],
+      kind: "api_blocked",
+      errorCode: "scope_compliance",
+    };
+
+    renderWithRouter(
+      <OpenQuestionsBlock
+        notification={apiBlockedNotification}
+        projectId="proj-1"
+        source="execute"
+        sourceId="task-1"
+        onResolved={onResolved}
+      />
+    );
+
+    expect(screen.getByText("API blocked")).toBeInTheDocument();
+    expect(screen.getByText("Scope compliance: Review rejected. Dismiss to acknowledge.")).toBeInTheDocument();
+    expect(screen.queryByTestId("open-questions-retry-btn")).not.toBeInTheDocument();
+    expect(screen.getByTestId("open-questions-dismiss-btn")).toBeInTheDocument();
+  });
+
   it("renders API-blocked auth variant with Dismiss only (no Retry)", () => {
     const apiBlockedNotification: Notification = {
       ...mockNotification,
