@@ -18,12 +18,7 @@ export type DeploymentMode = "expo" | "custom";
 export type DeploymentTarget = "staging" | "production";
 
 /** When to auto-deploy to this target (PRD §7.5.3) */
-export type AutoDeployTrigger =
-  | "each_task"
-  | "each_epic"
-  | "eval_resolution"
-  | "nightly"
-  | "none";
+export type AutoDeployTrigger = "each_task" | "each_epic" | "eval_resolution" | "nightly" | "none";
 
 /** Deployment target config (PRD ?7.5.2/7.5.4): staging/production targets with per-target command/webhook */
 export interface DeploymentTargetConfig {
@@ -93,15 +88,10 @@ export type DeployEvent = "each_task" | "each_epic" | "eval_resolution";
  * Get target names that should be deployed for a given event.
  * Returns targets whose autoDeployTrigger matches the event.
  */
-export function getTargetsForDeployEvent(
-  config: DeploymentConfig,
-  event: DeployEvent
-): string[] {
+export function getTargetsForDeployEvent(config: DeploymentConfig, event: DeployEvent): string[] {
   const targets = config.targets;
   if (!targets || targets.length === 0) return [];
-  return targets
-    .filter((t) => (t.autoDeployTrigger ?? "none") === event)
-    .map((t) => t.name);
+  return targets.filter((t) => (t.autoDeployTrigger ?? "none") === event).map((t) => t.name);
 }
 
 /**
@@ -111,9 +101,7 @@ export function getTargetsForDeployEvent(
 export function getTargetsForNightlyDeploy(config: DeploymentConfig): string[] {
   const targets = config.targets;
   if (!targets || targets.length === 0) return [];
-  return targets
-    .filter((t) => (t.autoDeployTrigger ?? "none") === "nightly")
-    .map((t) => t.name);
+  return targets.filter((t) => (t.autoDeployTrigger ?? "none") === "nightly").map((t) => t.name);
 }
 
 /** Auto-deploy trigger options for UI dropdown */
@@ -310,9 +298,18 @@ export interface ApiKeyEntry {
 /** API keys per provider: array of entries ordered by preference (first available used) */
 export type ApiKeys = Partial<Record<ApiKeyProvider, ApiKeyEntry[]>>;
 
+/** API key update entry; value may be omitted to preserve the stored key by id. */
+export interface ApiKeyUpdateEntry {
+  id: string;
+  value?: string;
+  limitHitAt?: string;
+}
+
+/** Partial API key update payload keyed by provider. */
+export type ApiKeysUpdate = Partial<Record<ApiKeyProvider, ApiKeyUpdateEntry[]>>;
+
 /** Default PostgreSQL URL when databaseUrl is not configured */
-export const DEFAULT_DATABASE_URL =
-  "postgresql://opensprint:opensprint@localhost:5432/opensprint";
+export const DEFAULT_DATABASE_URL = "postgresql://opensprint:opensprint@localhost:5432/opensprint";
 
 /** Global settings stored at ~/.opensprint/global-settings.json */
 export interface GlobalSettings {
@@ -331,7 +328,7 @@ export interface GlobalSettingsResponse {
 /** Request body for PUT /global-settings */
 export interface GlobalSettingsPutRequest {
   databaseUrl?: string;
-  apiKeys?: ApiKeys;
+  apiKeys?: ApiKeysUpdate;
 }
 
 /**
@@ -504,8 +501,7 @@ const VALID_REVIEW_ANGLES: ReviewAngle[] = [
 function parseReviewAngles(raw: unknown): ReviewAngle[] | undefined {
   if (!Array.isArray(raw) || raw.length === 0) return undefined;
   const filtered = raw.filter(
-    (v): v is ReviewAngle =>
-      typeof v === "string" && VALID_REVIEW_ANGLES.includes(v as ReviewAngle)
+    (v): v is ReviewAngle => typeof v === "string" && VALID_REVIEW_ANGLES.includes(v as ReviewAngle)
   );
   return filtered.length > 0 ? filtered : undefined;
 }
@@ -526,7 +522,10 @@ export function parseSettings(raw: unknown): ProjectSettings {
 
   let aiAutonomyLevel: AiAutonomyLevel = DEFAULT_AI_AUTONOMY_LEVEL;
   const rawLevel = r?.aiAutonomyLevel;
-  if (typeof rawLevel === "string" && VALID_AI_AUTONOMY_LEVELS.includes(rawLevel as AiAutonomyLevel)) {
+  if (
+    typeof rawLevel === "string" &&
+    VALID_AI_AUTONOMY_LEVELS.includes(rawLevel as AiAutonomyLevel)
+  ) {
     aiAutonomyLevel = rawLevel as AiAutonomyLevel;
   } else {
     const legacyHil = r?.hilConfig as HilConfig | undefined;
@@ -557,9 +556,11 @@ export function parseSettings(raw: unknown): ProjectSettings {
     } as ProjectSettings;
   }
   const simple =
-    (simpleObj && typeof simpleObj === "object" ? (simpleObj as AgentConfig) : null) ?? DEFAULT_AGENT;
+    (simpleObj && typeof simpleObj === "object" ? (simpleObj as AgentConfig) : null) ??
+    DEFAULT_AGENT;
   const complex =
-    (complexObj && typeof complexObj === "object" ? (complexObj as AgentConfig) : null) ?? DEFAULT_AGENT;
+    (complexObj && typeof complexObj === "object" ? (complexObj as AgentConfig) : null) ??
+    DEFAULT_AGENT;
   return {
     ...rest,
     simpleComplexityAgent: simple,
@@ -649,7 +650,8 @@ export function mergeApiKeysWithCurrent(
       merged.push({
         id,
         value,
-        ...(e.limitHitAt != null && typeof e.limitHitAt === "string" && { limitHitAt: e.limitHitAt }),
+        ...(e.limitHitAt != null &&
+          typeof e.limitHitAt === "string" && { limitHitAt: e.limitHitAt }),
       });
     }
     if (merged.length > 0) {
@@ -707,9 +709,7 @@ export function getProvidersInUse(settings: ProjectSettings): ApiKeyProvider[] {
 /**
  * Map agent type to API key provider. Returns null for claude-cli/custom (CLI uses local auth).
  */
-export function getProviderForAgentType(
-  agentType: AgentConfig["type"]
-): ApiKeyProvider | null {
+export function getProviderForAgentType(agentType: AgentConfig["type"]): ApiKeyProvider | null {
   switch (agentType) {
     case "claude":
       return "ANTHROPIC_API_KEY";

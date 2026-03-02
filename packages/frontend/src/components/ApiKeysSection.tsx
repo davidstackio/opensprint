@@ -4,6 +4,7 @@ import type {
   ApiKeyEntry,
   ApiKeyProvider,
   ApiKeys,
+  ApiKeysUpdate,
   MaskedApiKeyEntry,
   MaskedApiKeys,
 } from "@opensprint/shared";
@@ -69,7 +70,7 @@ interface ApiKeysSectionProps {
   onRevealKey?: (provider: ApiKeyProvider, id: string) => Promise<string>;
   /** When provided (global variant), clears limitHitAt for a rate-limited key so it can be retried. */
   onClearLimitHit?: (provider: ApiKeyProvider, id: string) => Promise<void>;
-  onApiKeysChange: (apiKeys: Partial<Record<ApiKeyProvider, Array<{ id: string; value?: string; limitHitAt?: string }>>>) => void;
+  onApiKeysChange: (apiKeys: ApiKeysUpdate) => void;
 }
 
 export function ApiKeysSection({
@@ -83,14 +84,14 @@ export function ApiKeysSection({
 }: ApiKeysSectionProps) {
   const [visibleKeys, setVisibleKeys] = useState<Set<string>>(new Set());
   const [editedValues, setEditedValues] = useState<Record<string, string>>({});
-  const [newKeys, setNewKeys] = useState<Partial<Record<ApiKeyProvider, Array<{ id: string; value: string }>>>>({});
+  const [newKeys, setNewKeys] = useState<
+    Partial<Record<ApiKeyProvider, Array<{ id: string; value: string }>>>
+  >({});
   const [revealedValues, setRevealedValues] = useState<Record<string, string>>({});
   const [revealingId, setRevealingId] = useState<string | null>(null);
   const [retryingId, setRetryingId] = useState<string | null>(null);
 
-  const providers =
-    providersProp ??
-    (settings ? getApiKeyProvidersForSection(settings) : []);
+  const providers = providersProp ?? (settings ? getApiKeyProvidersForSection(settings) : []);
   const apiKeys = apiKeysProp ?? settings?.apiKeys;
 
   if (providers.length === 0) return null;
@@ -106,10 +107,7 @@ export function ApiKeysSection({
         });
         return;
       }
-      if (
-        onRevealKey &&
-        (currentValue === MASKED_PLACEHOLDER || currentValue === "")
-      ) {
+      if (onRevealKey && (currentValue === MASKED_PLACEHOLDER || currentValue === "")) {
         setRevealingId(id);
         try {
           const value = await onRevealKey(provider, id);
@@ -127,19 +125,15 @@ export function ApiKeysSection({
 
   const getEntriesForProvider = useCallback(
     (provider: ApiKeyProvider): Array<{ id: string; value: string; limitHitAt?: string }> => {
-      const existing = (apiKeys as Record<string, MaskedApiKeyEntry[]> | undefined)?.[provider] ?? [];
+      const existing =
+        (apiKeys as Record<string, MaskedApiKeyEntry[]> | undefined)?.[provider] ?? [];
       const added = newKeys[provider] ?? [];
       const existingIds = new Set(existing.map((e) => e.id));
       const addedOnly = added.filter((e) => !existingIds.has(e.id));
       return [
         ...existing.map((e) => {
           const raw = e as ApiKeyEntry & MaskedApiKeyEntry;
-          const value =
-            editedValues[e.id] ??
-            raw.value ??
-            revealedValues[e.id] ??
-            raw.masked ??
-            "";
+          const value = editedValues[e.id] ?? raw.value ?? revealedValues[e.id] ?? raw.masked ?? "";
           return {
             id: e.id,
             value,
@@ -164,10 +158,7 @@ export function ApiKeysSection({
       changedValue?: string
     ) => {
       const payload = entries.map((e) => {
-        const value =
-          e.id === changedId && changedValue !== undefined
-            ? changedValue
-            : e.value;
+        const value = e.id === changedId && changedValue !== undefined ? changedValue : e.value;
         return {
           id: e.id,
           ...(value && value !== MASKED_PLACEHOLDER ? { value } : {}),
@@ -186,37 +177,30 @@ export function ApiKeysSection({
       if (isNew) {
         setNewKeys((prev) => ({
           ...prev,
-          [provider]: (prev[provider] ?? []).map((e) =>
-            e.id === id ? { ...e, value } : e
-          ),
+          [provider]: (prev[provider] ?? []).map((e) => (e.id === id ? { ...e, value } : e)),
         }));
       } else {
         setEditedValues((prev) => ({ ...prev, [id]: value }));
       }
       const entries = getEntriesForProvider(provider);
-      const updatedEntries = entries.map((e) =>
-        e.id === id ? { ...e, value } : e
-      );
+      const updatedEntries = entries.map((e) => (e.id === id ? { ...e, value } : e));
       emitApiKeysForProvider(provider, updatedEntries, id, value);
     },
     [newKeys, getEntriesForProvider, emitApiKeysForProvider]
   );
 
-  const addKey = useCallback(
-    (provider: ApiKeyProvider) => {
-      const id = crypto.randomUUID();
-      setNewKeys((prev) => {
-        const existing = prev[provider] ?? [];
-        // Idempotent: avoid duplicate add when React Strict Mode double-invokes the updater
-        if (existing.some((e) => e.id === id)) return prev;
-        return {
-          ...prev,
-          [provider]: [...existing, { id, value: "" }],
-        };
-      });
-    },
-    []
-  );
+  const addKey = useCallback((provider: ApiKeyProvider) => {
+    const id = crypto.randomUUID();
+    setNewKeys((prev) => {
+      const existing = prev[provider] ?? [];
+      // Idempotent: avoid duplicate add when React Strict Mode double-invokes the updater
+      if (existing.some((e) => e.id === id)) return prev;
+      return {
+        ...prev,
+        [provider]: [...existing, { id, value: "" }],
+      };
+    });
+  }, []);
 
   const removeKey = useCallback(
     (provider: ApiKeyProvider, id: string) => {
@@ -304,9 +288,7 @@ export function ApiKeysSection({
                               className="input font-mono text-sm w-full pr-10"
                               placeholder={placeholder}
                               value={displayValue}
-                              onChange={(e) =>
-                                updateEntryValue(provider, entry.id, e.target.value)
-                              }
+                              onChange={(e) => updateEntryValue(provider, entry.id, e.target.value)}
                               autoComplete="off"
                               data-testid={`api-key-input-${provider}-${entry.id}`}
                             />
@@ -384,7 +366,13 @@ export function ApiKeysSection({
 
 function EyeIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
       <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       <path
         strokeLinecap="round"
@@ -397,7 +385,13 @@ function EyeIcon({ className }: { className?: string }) {
 
 function EyeOffIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
@@ -409,7 +403,13 @@ function EyeOffIcon({ className }: { className?: string }) {
 
 function RemoveIcon({ className }: { className?: string }) {
   return (
-    <svg className={className} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <svg
+      className={className}
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke="currentColor"
+      strokeWidth={2}
+    >
       <path
         strokeLinecap="round"
         strokeLinejoin="round"

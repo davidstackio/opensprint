@@ -51,7 +51,9 @@ describe("GlobalSettingsContent", () => {
     await screen.findByTestId("api-keys-section-wrapper");
     expect(screen.getByTestId("api-keys-section")).toBeInTheDocument();
     expect(screen.getByText("API Keys")).toBeInTheDocument();
-    expect(screen.getByText(/Keys are stored globally and used across all projects/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Keys are stored globally and used across all projects/)
+    ).toBeInTheDocument();
     expect(screen.getByText("ANTHROPIC_API_KEY (Claude API)")).toBeInTheDocument();
     expect(screen.getByText("CURSOR_API_KEY")).toBeInTheDocument();
     expect(screen.getByText("OPENAI_API_KEY (OpenAI API)")).toBeInTheDocument();
@@ -112,9 +114,7 @@ describe("GlobalSettingsContent", () => {
     mockGlobalSettingsGet.mockResolvedValue({
       databaseUrl: "postgresql://user:***@localhost:5432/opensprint",
       apiKeys: {
-        ANTHROPIC_API_KEY: [
-          { id: "k1", masked: "••••••••", limitHitAt: "2025-02-25T12:00:00Z" },
-        ],
+        ANTHROPIC_API_KEY: [{ id: "k1", masked: "••••••••", limitHitAt: "2025-02-25T12:00:00Z" }],
       },
     });
 
@@ -129,9 +129,7 @@ describe("GlobalSettingsContent", () => {
     mockGlobalSettingsGet.mockResolvedValue({
       databaseUrl: "postgresql://user:***@localhost:5432/opensprint",
       apiKeys: {
-        ANTHROPIC_API_KEY: [
-          { id: "k1", masked: "••••••••", limitHitAt: "2025-02-25T12:00:00Z" },
-        ],
+        ANTHROPIC_API_KEY: [{ id: "k1", masked: "••••••••", limitHitAt: "2025-02-25T12:00:00Z" }],
       },
     });
     mockClearLimitHit.mockResolvedValue({
@@ -209,6 +207,62 @@ describe("GlobalSettingsContent", () => {
         })
       );
     });
+  });
+
+  it("preserves previously saved providers when a later save happens after masked reload state", async () => {
+    mockGlobalSettingsPut
+      .mockResolvedValueOnce({
+        databaseUrl: "postgresql://user:***@localhost:5432/opensprint",
+        apiKeys: {
+          ANTHROPIC_API_KEY: [{ id: "anth-1", masked: "••••••••" }],
+        },
+      })
+      .mockResolvedValueOnce({
+        databaseUrl: "postgresql://user:***@localhost:5432/opensprint",
+        apiKeys: {
+          ANTHROPIC_API_KEY: [{ id: "anth-1", masked: "••••••••" }],
+          CURSOR_API_KEY: [{ id: "cursor-1", masked: "••••••••" }],
+        },
+      });
+
+    render(<GlobalSettingsContent />);
+
+    await screen.findByTestId("api-key-add-ANTHROPIC_API_KEY");
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("api-key-add-ANTHROPIC_API_KEY"));
+    });
+
+    const anthropicInput = await screen.findByTestId(/api-key-input-ANTHROPIC_API_KEY-/);
+    await act(async () => {
+      fireEvent.change(anthropicInput, { target: { value: "sk-ant-first-key" } });
+    });
+
+    await waitFor(() => {
+      expect(mockGlobalSettingsPut).toHaveBeenCalledTimes(1);
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByTestId("api-key-add-CURSOR_API_KEY"));
+    });
+
+    const cursorInput = await screen.findByTestId(/api-key-input-CURSOR_API_KEY-/);
+    await act(async () => {
+      fireEvent.change(cursorInput, { target: { value: "cursor-second-key" } });
+    });
+
+    await waitFor(() => {
+      expect(mockGlobalSettingsPut).toHaveBeenCalledTimes(2);
+    });
+
+    expect(mockGlobalSettingsPut).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        apiKeys: expect.objectContaining({
+          ANTHROPIC_API_KEY: [expect.objectContaining({ id: "anth-1" })],
+          CURSOR_API_KEY: [expect.objectContaining({ value: "cursor-second-key" })],
+        }),
+      })
+    );
   });
 
   it("renders Database URL section with masked value", async () => {

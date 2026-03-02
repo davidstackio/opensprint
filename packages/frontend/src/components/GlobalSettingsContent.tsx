@@ -5,7 +5,14 @@ import type { RunningAgentsDisplayMode } from "../lib/displayPrefs";
 import { api, isConnectionError } from "../api/client";
 import { ApiKeysSection } from "./ApiKeysSection";
 import { CloseButton } from "./CloseButton";
-import type { ApiKeys, ApiKeyProvider, MaskedApiKeys } from "@opensprint/shared";
+import type {
+  ApiKeyEntry,
+  ApiKeys,
+  ApiKeyUpdateEntry,
+  ApiKeysUpdate,
+  MaskedApiKeyEntry,
+  MaskedApiKeys,
+} from "@opensprint/shared";
 import { API_KEY_PROVIDERS } from "@opensprint/shared";
 import type { SaveStatus } from "./SaveIndicator";
 
@@ -168,42 +175,39 @@ export function GlobalSettingsContent({ onSaveStateChange }: GlobalSettingsConte
     [notifySaveState]
   );
 
-  const handleApiKeysChange = async (
-    updates: Partial<
-      Record<
-        "ANTHROPIC_API_KEY" | "CURSOR_API_KEY" | "OPENAI_API_KEY" | "GOOGLE_API_KEY",
-        Array<{ id: string; value?: string; limitHitAt?: string }>
-      >
-    >
-  ) => {
+  const handleApiKeysChange = async (updates: ApiKeysUpdate) => {
     setApiKeysError(null);
     notifySaveState("saving");
-    const merged: ApiKeys = {};
+    const merged: ApiKeysUpdate = {};
     for (const provider of API_KEY_PROVIDERS) {
-      const currentEntries = (apiKeys?.[provider] ?? []).flatMap((entry) =>
-        "value" in entry && entry.value
-          ? [
-              {
-                id: entry.id,
-                value: entry.value,
-                ...(entry.limitHitAt ? { limitHitAt: entry.limitHitAt } : {}),
-              },
-            ]
-          : []
+      const currentEntries = (apiKeys?.[provider] ?? []).flatMap(
+        (entry: ApiKeyEntry | MaskedApiKeyEntry) => {
+          const id = typeof entry.id === "string" ? entry.id.trim() : "";
+          if (!id) return [];
+          const preserved: ApiKeyUpdateEntry = {
+            id,
+            ...(entry.limitHitAt ? { limitHitAt: entry.limitHitAt } : {}),
+          };
+          if ("value" in entry && typeof entry.value === "string" && entry.value) {
+            preserved.value = entry.value;
+          }
+          return [preserved];
+        }
       );
       const nextEntries = updates[provider];
       const sourceEntries = nextEntries ?? currentEntries;
-      const normalizedEntries = sourceEntries.flatMap((entry) =>
-        entry.value
-          ? [
-              {
-                id: entry.id,
-                value: entry.value,
-                ...(entry.limitHitAt ? { limitHitAt: entry.limitHitAt } : {}),
-              },
-            ]
-          : []
-      );
+      const normalizedEntries = sourceEntries.flatMap((entry: ApiKeyUpdateEntry) => {
+        const id = typeof entry.id === "string" ? entry.id.trim() : "";
+        if (!id) return [];
+        const normalized: ApiKeyUpdateEntry = {
+          id,
+          ...(entry.limitHitAt ? { limitHitAt: entry.limitHitAt } : {}),
+        };
+        if (typeof entry.value === "string" && entry.value) {
+          normalized.value = entry.value;
+        }
+        return [normalized];
+      });
       if (normalizedEntries.length > 0) {
         merged[provider] = normalizedEntries;
       }
